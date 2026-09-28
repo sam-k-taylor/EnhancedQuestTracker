@@ -1,6 +1,8 @@
 # Enhanced Quest Tracker
 
-A Questie-style quest tracker for **WoW Forever**. Your quests are grouped by zone and sorted by level, so you can see at a glance what's nearby and what to do next.
+**Questie-like tracker features in a lightweight package.** A quest tracker for WoW Forever that groups your quests by zone and sorts them by level.
+
+Enhanced Quest Tracker gives you the tracker side of Questie without its quest database, map pins or extra overhead. It's a single tracker frame that shows what's nearby and what to do next.
 
 ## Features
 
@@ -21,7 +23,8 @@ A Questie-style quest tracker for **WoW Forever**. Your quests are grouped by zo
 Choose a style in **Options > AddOns > Enhanced Quest Tracker**:
 
 - **Default:** looks like Blizzard's quest tracker, with header bars, clickable quest map icons for focusing a quest, and check marks on finished objectives, but keeps the zone groups.
-- **QuestieLike - High Contrast:** outlines all the tracker text so it's easier to read over the game world.
+- **QuestieLike:** a compact, text-only layout in the style of Questie. Zones have `+`/`-` headers with a quest count. Quests are shown as `[level] title` and coloured by difficulty, with `- objective` lines underneath. Quest item buttons sit to the left of the quest name.
+- **QuestieLike - High Contrast:** the same as QuestieLike, but all the tracker text is outlined so it's easier to read over the game world.
 
 The same panel also has:
 
