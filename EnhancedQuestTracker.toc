@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: Enhanced Quest Tracker
+## Notes: Questie-style quest tracker grouped by zone, sorted by quest level.
+## Author: Sam Taylor
+## Version: @project-version@
+## SavedVariables: EnhancedQuestTrackerDB
+
+src\Core.lua
+src\QuestData.lua
+src\Announce.lua
+src\ItemButtons.lua
+src\Tracker.lua
+src\Options.lua
