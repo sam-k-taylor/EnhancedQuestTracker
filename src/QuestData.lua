@@ -57,6 +57,8 @@ local function BuildQuest(info)
 		isFailed = C_QuestLog.IsFailed(questID),
 		objectives = C_QuestLog.GetQuestObjectives(questID) or {},
 		partyMembers = GetPartyMembersOnQuest(questID),
+		-- Looked up here rather than in the layout so resizing doesn't repeat it.
+		hasWaypoint = ns.TomTom:IsEnabled() and ns.TomTom:HasLocation(questID),
 	}
 end
 

@@ -1,6 +1,6 @@
 local _, ns = ...
 
--- Announces to party chat when a quest in the log becomes ready to turn in.
+-- Announces to party chat when a quest is accepted or becomes ready to turn in.
 local Announce = {}
 ns.Announce = Announce
 
@@ -15,8 +15,54 @@ local function SendPartyMessage(msg)
 	end
 end
 
+local function InParty()
+	return IsInGroup() and not IsInRaid()
+end
+
 local function ShouldAnnounce()
-	return ns.db.announceParty and IsInGroup() and not IsInRaid()
+	return ns.db.announceParty and InParty()
+end
+
+-- Quest IDs offered to us by another player. A shared quest opens the quest
+-- details window with the sharing player as the quest giver.
+local sharedWithUs = {}
+
+function Announce:OnQuestDetail()
+	local questID = GetQuestID()
+	if questID and questID ~= 0 then
+		-- Overwrite any earlier offer, e.g. a declined share now taken from the NPC.
+		sharedWithUs[questID] = (UnitIsPlayer("questnpc") or UnitIsPlayer("npc")) or nil
+	end
+end
+
+local function ShareQuest(questID, retried)
+	if not C_QuestLog.GetLogIndexForQuestID(questID) then
+		-- The quest may not be in the log yet when QUEST_ACCEPTED fires.
+		if not retried then
+			C_Timer.After(0.5, function() ShareQuest(questID, true) end)
+		end
+		return
+	end
+	if C_QuestLog.IsPushableQuest(questID) then
+		QuestUtil.ShareQuest(questID)
+	end
+end
+
+function Announce:OnQuestAccepted(questID)
+	if not questID then return end
+	local wasShared = sharedWithUs[questID]
+	sharedWithUs[questID] = nil
+	if not InParty() then return end
+	-- Only share quests we picked up ourselves, not ones shared with us.
+	if ns.db.autoShare and not wasShared then
+		ShareQuest(questID)
+	end
+	if not ns.db.announceAccepted then return end
+	local link = GetQuestLink and GetQuestLink(questID)
+	local title = link or C_QuestLog.GetTitleForQuestID(questID)
+	if title then
+		SendPartyMessage(("Quest accepted: %s"):format(title))
+	end
 end
 
 function Announce:Scan()

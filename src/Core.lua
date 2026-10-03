@@ -9,8 +9,12 @@ local DEFAULTS = {
 	locked = false,
 	hideBlizzardTracker = true,
 	announceParty = true,
+	announceAccepted = false,
+	autoShare = false,
+	tomtomButton = true, -- only shown when TomTom is installed
 	style = "Default",
 	fontScale = 100, -- percent of the default font sizes
+	bgOpacity = 0, -- percent opacity of the tracker background
 	collapsed = {}, -- [zoneName] = true
 }
 ns.defaults = DEFAULTS
@@ -56,6 +60,7 @@ function ns:RequestRefresh()
 	C_Timer.After(0.1, function()
 		refreshPending = false
 		ns.Announce:Scan()
+		ns.TomTom:Update()
 		ns.Tracker:Refresh()
 	end)
 end
@@ -141,6 +146,8 @@ events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("QUEST_LOG_UPDATE")
 events:RegisterEvent("QUEST_ACCEPTED")
+events:RegisterEvent("QUEST_DETAIL")
+events:RegisterEvent("QUEST_POI_UPDATE") -- quest locations loaded, for TomTom buttons
 events:RegisterEvent("QUEST_REMOVED")
 events:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
 events:RegisterEvent("ZONE_CHANGED_NEW_AREA")
@@ -163,6 +170,11 @@ events:SetScript("OnEvent", function(_, event, arg1)
 				end
 				ns.db.highContrast = nil
 			end
+			-- The background used to be fixed per style: none for Default, 35% for
+			-- QuestieLike. Players from before the opacity option keep what they had.
+			if ns.db.bgOpacity == nil and ns.db.style ~= nil and ns.db.style ~= "Default" then
+				ns.db.bgOpacity = 35
+			end
 			ApplyDefaults(ns.db, DEFAULTS)
 			ns.Options:Init()
 		elseif arg1 == "Blizzard_ObjectiveTracker" and ns.db then
@@ -178,6 +190,14 @@ events:SetScript("OnEvent", function(_, event, arg1)
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		ns:UpdateBlizzardTracker()
 		ns.ItemButtons:OnCombatEnded()
+	elseif event == "QUEST_DETAIL" then
+		ns.Announce:OnQuestDetail()
+	elseif event == "QUEST_ACCEPTED" then
+		ns.Announce:OnQuestAccepted(arg1)
+		ns:RequestRefresh()
+	elseif event == "SUPER_TRACKING_CHANGED" then
+		ns.TomTom:OnSuperTrackingChanged()
+		ns:RequestRefresh()
 	elseif event == "BAG_UPDATE_COOLDOWN" then
 		ns.ItemButtons:UpdateCooldowns()
 	else
@@ -201,6 +221,12 @@ SlashCmdList.ENHANCEDQUESTTRACKER = function(msg)
 	elseif cmd == "announce" then
 		ns.db.announceParty = not ns.db.announceParty
 		ns:Print(ns.db.announceParty and "Party quest completion announcements on." or "Party quest completion announcements off.")
+	elseif cmd == "announceaccept" then
+		ns.db.announceAccepted = not ns.db.announceAccepted
+		ns:Print(ns.db.announceAccepted and "Party quest accepted announcements on." or "Party quest accepted announcements off.")
+	elseif cmd == "share" then
+		ns.db.autoShare = not ns.db.autoShare
+		ns:Print(ns.db.autoShare and "Auto-sharing accepted quests with party on." or "Auto-sharing accepted quests with party off.")
 	elseif cmd == "expand" then
 		wipe(ns.db.collapsed)
 		ns:RequestRefresh()
@@ -214,6 +240,6 @@ SlashCmdList.ENHANCEDQUESTTRACKER = function(msg)
 	elseif cmd == "toggle" or cmd == "" then
 		ns.Tracker:Toggle()
 	else
-		ns:Print("Commands: toggle, options, lock, blizz, announce, expand, reset")
+		ns:Print("Commands: toggle, options, lock, blizz, announce, announceaccept, share, expand, reset")
 	end
 end

@@ -44,10 +44,14 @@ local BLIZZ_CHECK_X, BLIZZ_CHECK_Y = -10, 2 -- check mark's top-left, from the o
 local BLIZZ_ITEM_SIZE = 26
 local BLIZZ_ITEM_BORDER = 8 -- item border art extends this far past the button
 local BLIZZ_RIGHT_PADDING = 8
+local BLIZZ_WAYPOINT_SIZE = 14
 -- Blizzard's OBJECTIVE_TRACKER_COLOR values.
 local BLIZZ_OBJECTIVE_COLOR = { 0.8, 0.8, 0.8 }
 local BLIZZ_COMPLETE_COLOR = { 0.6, 0.6, 0.6 }
 local BLIZZ_HEADER_COLOR = { 1, 0.82, 0 }
+
+local WAYPOINT_ICON = "Interface\\Icons\\INV_Misc_Map_01"
+local WAYPOINT_CANCEL_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
 
 -- Simple row pools so we don't create frames on every refresh.
 local zoneRows, questRows, objectiveRows = {}, {}, {} -- objective rows are { text, dash, check }
@@ -212,6 +216,24 @@ local function ToggleFocus(questID)
 	end
 end
 
+-- Shows the quest row's TomTom waypoint button at the given size if enabled
+-- and the quest has a known location. The caller anchors it. Returns whether
+-- it's shown.
+local function ShowWaypointButton(row, size)
+	-- Kept while the quest's waypoint is set, so it can always be cancelled.
+	local shown = ns.TomTom:IsEnabled() and (row.quest.hasWaypoint or ns.TomTom:IsActiveFor(row.questID))
+	row.waypoint:SetShown(shown)
+	if shown then
+		-- A red X cancels the quest's waypoint once it's set.
+		local icon = ns.TomTom:IsActiveFor(row.questID) and WAYPOINT_CANCEL_ICON or WAYPOINT_ICON
+		row.waypoint:SetNormalTexture(icon)
+		row.waypoint:SetHighlightTexture(icon, "ADD")
+		row.waypoint:ClearAllPoints()
+		row.waypoint:SetSize(size, size)
+	end
+	return shown
+end
+
 local function OpenQuest(questID)
 	if QuestMapFrame_OpenToQuestDetails then
 		QuestMapFrame_OpenToQuestDetails(questID)
@@ -282,6 +304,23 @@ local function AcquireQuestRow(parent)
 		row.poi.highlight:SetPoint("CENTER")
 		row.poi.highlight:SetBlendMode("ADD")
 		row.poi:SetScript("OnClick", function(self) ToggleFocus(self:GetParent().questID) end)
+
+		-- TomTom waypoint button at the right of the quest name.
+		row.waypoint = CreateFrame("Button", nil, row)
+		row.waypoint:SetScript("OnClick", function(self)
+			local questID = self:GetParent().questID
+			PlaySound(ns.TomTom:IsActiveFor(questID) and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF
+				or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+			ns.TomTom:Toggle(questID)
+			if GameTooltip:IsOwned(self) then self:GetScript("OnEnter")(self) end
+		end)
+		row.waypoint:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			local active = ns.TomTom:IsActiveFor(self:GetParent().questID)
+			GameTooltip:SetText(active and "Cancel TomTom Waypoint" or "Set TomTom Waypoint")
+			GameTooltip:Show()
+		end)
+		row.waypoint:SetScript("OnLeave", GameTooltip_Hide)
 
 		row:SetScript("OnEnter", ShowPartyTooltip)
 		row:SetScript("OnLeave", GameTooltip_Hide)
@@ -437,9 +476,7 @@ function Tracker:ApplyChrome(look)
 	local isBlizzard = look == "blizzard"
 	f.title:SetShown(not isBlizzard)
 	f.header:SetShown(isBlizzard)
-	if f.SetBackdropColor then
-		f:SetBackdropColor(0, 0, 0, isBlizzard and 0 or 0.35)
-	end
+	self:ApplyBackground()
 
 	f.scroll:ClearAllPoints()
 	if isBlizzard then
@@ -451,6 +488,14 @@ function Tracker:ApplyChrome(look)
 	else
 		f.scroll:SetPoint("TOPLEFT", f.title, "BOTTOMLEFT", 0, -4)
 		f.scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PADDING, PADDING)
+	end
+end
+
+-- Sets the tracker background's opacity from the Background Opacity option.
+function Tracker:ApplyBackground()
+	local f = self.frame
+	if f and f.SetBackdropColor then
+		f:SetBackdropColor(0, 0, 0, ns.db.bgOpacity / 100)
 	end
 end
 
@@ -574,7 +619,12 @@ local function LayoutQuestie(f, zones)
 				local blockTop = y
 				qr.text:ClearAllPoints()
 				qr.text:SetPoint("LEFT", qr, "LEFT", itemIndent, 0)
-				qr.text:SetPoint("RIGHT")
+				if ShowWaypointButton(qr, questHeight) then
+					qr.waypoint:SetPoint("RIGHT")
+					qr.text:SetPoint("RIGHT", qr.waypoint, "LEFT", -2, 0)
+				else
+					qr.text:SetPoint("RIGHT")
+				end
 				qr.text:SetWordWrap(false)
 				-- Focus highlight starts at the quest name, after any item button.
 				qr.focusBg:SetPoint("TOPLEFT", qr, "TOPLEFT", itemIndent - 4, 0)
@@ -727,7 +777,13 @@ local function LayoutBlizzard(f, zones)
 				local elite = quest.isElite and "+" or ""
 				local party = #quest.partyMembers > 0 and (" |cff66ccff(+%d)|r"):format(#quest.partyMembers) or ""
 				local title = ("[%d%s] %s%s"):format(quest.level, elite, quest.title, party)
-				local titleHeight = SetWrappedText(qr.text, title, textWidth, 2)
+				local waypointSize = ns:Scale(BLIZZ_WAYPOINT_SIZE)
+				local titleWidth = textWidth
+				if ShowWaypointButton(qr, waypointSize) then
+					qr.waypoint:SetPoint("TOPRIGHT")
+					titleWidth = textWidth - waypointSize - 2
+				end
+				local titleHeight = SetWrappedText(qr.text, title, titleWidth, 2)
 				qr.text:SetTextColor(LevelColor(quest.level))
 				qr:SetPoint("TOPLEFT", content, "TOPLEFT", blockX, -y)
 				qr:SetSize(textWidth, titleHeight)

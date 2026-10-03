@@ -16,8 +16,10 @@ local function AddCheckbox(category, key, name, tooltip, onChanged)
 end
 
 function Options:Init()
-	local category = Settings.RegisterVerticalLayoutCategory(TITLE)
+	local category, layout = Settings.RegisterVerticalLayoutCategory(TITLE)
 	self.category = category
+
+	layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Display Options"))
 
 	AddCheckbox(category, "locked", "Lock Tracker",
 		"Prevent the tracker from being moved or resized. Hold Shift to move or resize it anyway.")
@@ -25,9 +27,6 @@ function Options:Init()
 	AddCheckbox(category, "hideBlizzardTracker", "Hide Blizzard Quest Tracker",
 		"Hide the default objective tracker while this addon is enabled.",
 		function() ns:UpdateBlizzardTracker() end)
-
-	AddCheckbox(category, "announceParty", "Announce Completed Quests to Party",
-		"When in a party, post a message in party chat when a quest's objectives are complete.")
 
 	local styleSetting = Settings.RegisterAddOnSetting(category, addonName .. "_style", "style", ns.db,
 		Settings.VarType.String, "Style", ns.defaults.style)
@@ -59,6 +58,17 @@ function Options:Init()
 	end
 	Settings.CreateSlider(category, fontSetting, fontOptions, "Size of the tracker text, as a percentage of the default.")
 
+	local bgSetting = Settings.RegisterAddOnSetting(category, addonName .. "_bgOpacity", "bgOpacity", ns.db,
+		Settings.VarType.Number, "Background Opacity", ns.defaults.bgOpacity)
+	bgSetting:SetValueChangedCallback(function() ns.Tracker:ApplyBackground() end)
+	local bgOptions = Settings.CreateSliderOptions(0, 100, 5)
+	if MinimalSliderWithSteppersMixin then
+		bgOptions:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
+			return value .. "%"
+		end)
+	end
+	Settings.CreateSlider(category, bgSetting, bgOptions, "Opacity of the tracker's background. 0% is fully transparent.")
+
 	local widthSetting = Settings.RegisterAddOnSetting(category, addonName .. "_width", "width", ns.db,
 		Settings.VarType.Number, "Tracker Width", ns.defaults.width)
 	widthSetting:SetValueChangedCallback(function() ns.Tracker:ApplyWidth() end)
@@ -67,6 +77,24 @@ function Options:Init()
 		widthOptions:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right)
 	end
 	Settings.CreateSlider(category, widthSetting, widthOptions, "Width of the tracker in pixels.")
+
+	if ns.TomTom:IsAvailable() then
+		AddCheckbox(category, "tomtomButton", "Show TomTom Waypoint Buttons",
+			"Show a button next to each quest that sets a TomTom waypoint to it. Quests without a known location have no button.",
+			function() ns:RequestRefresh() end)
+	end
+
+	-- Party Options: these only apply while in a party (not a raid).
+	layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Party Options"))
+
+	AddCheckbox(category, "announceParty", "Announce Completed Quests",
+		"When in a party, post a message in party chat when a quest's objectives are complete.")
+
+	AddCheckbox(category, "announceAccepted", "Announce Accepted Quests",
+		"When in a party, post a message in party chat when you accept a quest.")
+
+	AddCheckbox(category, "autoShare", "Auto Share Accepted Quests",
+		"When in a party, automatically share quests with party members as you accept them (if the quest can be shared). Quests shared with you aren't shared back.")
 
 	Settings.RegisterAddOnCategory(category)
 end
