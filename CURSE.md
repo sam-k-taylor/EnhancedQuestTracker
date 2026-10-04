@@ -40,6 +40,7 @@ Everything is in **Options > AddOns > Enhanced Quest Tracker**, split into two s
 - **Font Size:** 70–150%. Row spacing and item buttons scale along with the text.
 - **Background Opacity:** 0–100%. The default is 0% (fully transparent).
 - **Tracker Width**
+- **Show Quest Rewards on Mouse Over:** hover a quest to see its rewards. In a party, they show below your party's progress. Off by default.
 - **Show TomTom Waypoint Buttons:** only shown if TomTom is installed. On by default.
 
 **Party Options.** These only apply when you're in a party, not a raid.

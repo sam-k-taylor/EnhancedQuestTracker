@@ -36,7 +36,7 @@ Quest clicks: left-click opens the quest, Shift-click untracks (or links it if y
 Style: Options > AddOns > Enhanced Quest Tracker has a Style dropdown to change how the tracker looks. "Default" looks like Blizzard's quest tracker (header bars, quest map icons you can click to focus a quest, check marks on finished objectives, item buttons on the right) but keeps the zone groups; click a zone's bar to collapse it, or the button on the top bar to collapse or expand every zone. "QuestieLike - High Contrast" outlines all tracker text so it's easier to read over the game world.
 
 Options: Options > AddOns > Enhanced Quest Tracker has two sections.
-- Display Options: Lock Tracker, Hide Blizzard Quest Tracker, Style, Font Size (70–150%; row spacing and quest item buttons scale with it), Background Opacity (0–100%, default 0%), Tracker Width, and Show TomTom Waypoint Buttons (only registered when TomTom is loaded).
+- Display Options: Lock Tracker, Hide Blizzard Quest Tracker, Style, Font Size (70–150%; row spacing and quest item buttons scale with it), Background Opacity (0–100%, default 0%), Tracker Width, Show Quest Rewards on Mouse Over (off by default; rewards come from `Data:GetRewards` and are added below party progress in the quest tooltip), and Show TomTom Waypoint Buttons (only registered when TomTom is loaded).
 - Party Options (party only, not raids): Announce Completed Quests (on by default), Announce Accepted Quests and Auto Share Accepted Quests (both off by default).
 
 Party announcements and sharing: completed quests are detected by `Announce:Scan` on quest log updates; accepted quests come from `QUEST_ACCEPTED`. Auto share skips quests that were shared with you, detected in `QUEST_DETAIL` by the quest giver being a player.

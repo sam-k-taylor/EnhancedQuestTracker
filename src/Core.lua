@@ -11,6 +11,7 @@ local DEFAULTS = {
 	announceParty = true,
 	announceAccepted = false,
 	autoShare = false,
+	showRewards = false,
 	tomtomButton = true, -- only shown when TomTom is installed
 	style = "Default",
 	fontScale = 100, -- percent of the default font sizes

@@ -78,6 +78,9 @@ function Options:Init()
 	end
 	Settings.CreateSlider(category, widthSetting, widthOptions, "Width of the tracker in pixels.")
 
+	AddCheckbox(category, "showRewards", "Show Quest Rewards on Mouse Over",
+		"Show a quest's rewards in a tooltip when you mouse over it in the tracker. In a party, they're listed below the party's progress.")
+
 	if ns.TomTom:IsAvailable() then
 		AddCheckbox(category, "tomtomButton", "Show TomTom Waypoint Buttons",
 			"Show a button next to each quest that sets a TomTom waypoint to it. Quests without a known location have no button.",

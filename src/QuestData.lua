@@ -95,3 +95,67 @@ function Data:GetZones()
 	table.sort(result, function(a, b) return a.name < b.name end)
 	return result
 end
+
+-- Rewards ---------------------------------------------------------------------
+
+-- Reads an item reward via GetQuestLogRewardInfo / GetQuestLogChoiceInfo.
+-- name is nil until the item's data has loaded; pending then lists its itemID.
+local function ReadItem(queryFunction, index, pending)
+	local name, texture, count, quality, _, itemID = queryFunction(index)
+	if not name and itemID then
+		pending[#pending + 1] = itemID
+	end
+	return { name = name, texture = texture, count = count or 1, quality = quality }
+end
+
+local function ReadCurrency(info)
+	return { name = info.name, texture = info.texture, count = info.totalRewardAmount or 0, quality = info.quality }
+end
+
+-- The quest's rewards, or nil if it has none (or they aren't shown):
+-- { xp, money, items = {}, choices = {}, pending = { itemID, ... } }
+-- items and choices hold { name, texture, count, quality }.
+function Data:GetRewards(questID)
+	if C_QuestLog.ShouldShowQuestRewards and not C_QuestLog.ShouldShowQuestRewards(questID) then
+		return nil
+	end
+
+	-- The quest log reward functions read the selected quest.
+	local selected = C_QuestLog.GetSelectedQuest()
+	C_QuestLog.SetSelectedQuest(questID)
+
+	local rewards = { items = {}, choices = {}, pending = {} }
+	rewards.xp = GetQuestLogRewardXP and GetQuestLogRewardXP() or 0
+	rewards.money = GetQuestLogRewardMoney() or 0
+
+	for i = 1, GetNumQuestLogRewards() do
+		rewards.items[#rewards.items + 1] = ReadItem(GetQuestLogRewardInfo, i, rewards.pending)
+	end
+	if C_QuestInfoSystem and C_QuestInfoSystem.GetQuestRewardCurrencies then
+		for _, info in ipairs(C_QuestInfoSystem.GetQuestRewardCurrencies(questID) or {}) do
+			if not info.isChoice then
+				rewards.items[#rewards.items + 1] = ReadCurrency(info)
+			end
+		end
+	end
+
+	for i = 1, GetNumQuestLogChoices(questID, true) do
+		-- Loot type 1 is a currency choice; anything else is an item.
+		local isCurrency = GetQuestLogChoiceInfoLootType and GetQuestLogChoiceInfoLootType(i) == 1
+		if isCurrency then
+			local info = C_QuestLog.GetQuestRewardCurrencyInfo(questID, i, true)
+			if info then
+				rewards.choices[#rewards.choices + 1] = ReadCurrency(info)
+			end
+		else
+			rewards.choices[#rewards.choices + 1] = ReadItem(GetQuestLogChoiceInfo, i, rewards.pending)
+		end
+	end
+
+	C_QuestLog.SetSelectedQuest(selected or 0)
+
+	if rewards.xp == 0 and rewards.money == 0 and #rewards.items == 0 and #rewards.choices == 0 then
+		return nil
+	end
+	return rewards
+end

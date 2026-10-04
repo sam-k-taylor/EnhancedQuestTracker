@@ -174,29 +174,118 @@ local function AddPlayerProgress(quest, colors)
 	end
 end
 
-local function ShowPartyTooltip(row)
-	local quest = row.quest
-	if not quest or #quest.partyMembers == 0 then return end
-	GameTooltip:SetOwner(row, "ANCHOR_LEFT")
-	local colors = GetGroupClassColors()
-	if GameTooltip.SetQuestPartyProgress then
-		-- Blizzard's tooltip lists every party member's objective progress,
-		-- including ours.
-		GameTooltip:SetQuestPartyProgress(quest.questID)
-		ColorNamesInTooltip(colors)
-	else
-		GameTooltip:SetText(quest.title)
-		for _, name in ipairs(quest.partyMembers) do
-			local color = colors[name]
-			if color then
-				GameTooltip:AddLine(name, color.r, color.g, color.b)
-			else
-				GameTooltip:AddLine(name, 1, 1, 1)
-			end
-		end
-		AddPlayerProgress(quest, colors)
+-- Adds a reward line: icon, name in its quality colour, and count.
+local function AddRewardLine(reward)
+	local r, g, b = 1, 1, 1
+	local color = reward.quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[reward.quality]
+	if color then r, g, b = color.r, color.g, color.b end
+	local text = reward.name or RETRIEVING_ITEM_INFO or "Loading..."
+	if reward.count > 1 then
+		text = ("%s |cffffffffx%d|r"):format(text, reward.count)
 	end
-	GameTooltip:Show()
+	if reward.texture then
+		text = ("|T%s:16|t %s"):format(reward.texture, text)
+	end
+	GameTooltip:AddLine(text, r, g, b)
+end
+
+local function AddRewards(rewards)
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine(REWARDS or "Rewards", 1, 0.82, 0)
+	if rewards.xp > 0 then
+		GameTooltip:AddLine(("%s Experience"):format(BreakUpLargeNumbers and BreakUpLargeNumbers(rewards.xp) or rewards.xp), 1, 1, 1)
+	end
+	if rewards.money > 0 then
+		GameTooltip:AddLine(GetMoneyString(rewards.money), 1, 1, 1)
+	end
+	for _, reward in ipairs(rewards.items) do
+		AddRewardLine(reward)
+	end
+	if #rewards.choices > 0 then
+		GameTooltip:AddLine(REWARD_CHOICES or "You will be able to choose one of these rewards:", 1, 0.82, 0, true)
+		for _, reward in ipairs(rewards.choices) do
+			AddRewardLine(reward)
+		end
+	end
+end
+
+local ShowQuestTooltip
+
+-- Adds the quest's rewards to the tooltip if the option is on. Returns whether
+-- it has any.
+local function AddQuestRewards(row)
+	local rewards = ns.db.showRewards and ns.Data:GetRewards(row.questID)
+	if not rewards then return false end
+	AddRewards(rewards)
+	-- Redraw once uncached reward items have loaded, if still hovered.
+	for _, itemID in ipairs(rewards.pending) do
+		Item:CreateFromItemID(itemID):ContinueOnItemLoad(function()
+			if GameTooltip:IsOwned(row) then ShowQuestTooltip(row) end
+		end)
+	end
+	return true
+end
+
+-- The quest row whose tooltip shows Blizzard's party progress. Blizzard rebuilds
+-- that tooltip when party data updates, so class colours and rewards are added
+-- in a post call rather than once after setting it.
+local partyTooltipRow
+
+local function DecoratePartyTooltip(tooltip)
+	local row = partyTooltipRow
+	if tooltip ~= GameTooltip or not row or not tooltip:IsOwned(row) then return end
+	ColorNamesInTooltip(GetGroupClassColors())
+	AddQuestRewards(row)
+end
+
+if TooltipDataProcessor and Enum.TooltipDataType and Enum.TooltipDataType.QuestPartyProgress then
+	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.QuestPartyProgress, DecoratePartyTooltip)
+end
+
+-- Lists each party member and our own objective progress ourselves, for when
+-- Blizzard's party progress tooltip isn't available.
+local function SetPartyFallback(quest)
+	local colors = GetGroupClassColors()
+	GameTooltip:SetText(quest.title)
+	for _, name in ipairs(quest.partyMembers) do
+		local color = colors[name]
+		if color then
+			GameTooltip:AddLine(name, color.r, color.g, color.b)
+		else
+			GameTooltip:AddLine(name, 1, 1, 1)
+		end
+	end
+	AddPlayerProgress(quest, colors)
+end
+
+-- Party progress at the top (in a party) and rewards below (if enabled).
+function ShowQuestTooltip(row)
+	local quest = row.quest
+	if not quest then return end
+
+	if #quest.partyMembers > 0 then
+		GameTooltip:SetOwner(row, "ANCHOR_LEFT")
+		if GameTooltip.SetQuestPartyProgress then
+			-- Blizzard's tooltip lists every party member's objective progress,
+			-- including ours; DecoratePartyTooltip adds the rest.
+			partyTooltipRow = row
+			GameTooltip:SetQuestPartyProgress(quest.questID)
+			if GameTooltip:IsShown() and GameTooltip:IsOwned(row) and GameTooltip:NumLines() > 0 then
+				return
+			end
+			-- No party progress data: it hid the tooltip, so start again.
+			partyTooltipRow = nil
+			GameTooltip:SetOwner(row, "ANCHOR_LEFT")
+		end
+		SetPartyFallback(quest)
+		AddQuestRewards(row)
+		GameTooltip:Show()
+	elseif ns.db.showRewards and ns.Data:GetRewards(quest.questID) then
+		GameTooltip:SetOwner(row, "ANCHOR_LEFT")
+		GameTooltip:SetText(quest.title, LevelColor(quest.level))
+		AddQuestRewards(row)
+		GameTooltip:Show()
+	end
 end
 
 -- Sets an atlas at its own size scaled by the font size option.
@@ -286,13 +375,17 @@ local function AcquireQuestRow(parent)
 
 		-- Focus indicator: gold highlight behind the row with an accent bar on the left.
 		row.focusBg = row:CreateTexture(nil, "BACKGROUND")
-		row.focusBg:SetPoint("BOTTOMRIGHT")
 		row.focusBg:SetColorTexture(1, 0.82, 0, 0.18)
 		row.focusBar = row:CreateTexture(nil, "ARTWORK")
 		row.focusBar:SetPoint("TOPLEFT", row.focusBg, "TOPLEFT")
 		row.focusBar:SetPoint("BOTTOMLEFT", row.focusBg, "BOTTOMLEFT")
 		row.focusBar:SetWidth(2)
 		row.focusBar:SetColorTexture(1, 0.82, 0, 0.9)
+
+		-- Faint highlight behind the whole quest while the mouse is over it.
+		row.hoverBg = row:CreateTexture(nil, "HIGHLIGHT")
+		row.hoverBg:SetPoint("BOTTOMRIGHT")
+		row.hoverBg:SetColorTexture(1, 1, 1, 0.08)
 
 		-- Default look: quest POI bubble to the left of the name; click to focus.
 		row.poi = CreateFrame("Button", nil, row)
@@ -322,7 +415,7 @@ local function AcquireQuestRow(parent)
 		end)
 		row.waypoint:SetScript("OnLeave", GameTooltip_Hide)
 
-		row:SetScript("OnEnter", ShowPartyTooltip)
+		row:SetScript("OnEnter", ShowQuestTooltip)
 		row:SetScript("OnLeave", GameTooltip_Hide)
 		row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 		row:SetScript("OnClick", function(self, button)
@@ -618,16 +711,20 @@ local function LayoutQuestie(f, zones)
 				local itemIndent = quest.item and (itemSize + itemGap) or 0
 				local blockTop = y
 				qr.text:ClearAllPoints()
-				qr.text:SetPoint("LEFT", qr, "LEFT", itemIndent, 0)
+				-- The row spans the quest's objectives too, so the title sits in its top strip.
+				local titleMid = -questHeight / 2
+				qr.text:SetPoint("LEFT", qr, "TOPLEFT", itemIndent, titleMid)
 				if ShowWaypointButton(qr, questHeight) then
-					qr.waypoint:SetPoint("RIGHT")
+					qr.waypoint:SetPoint("RIGHT", qr, "TOPRIGHT", 0, titleMid)
 					qr.text:SetPoint("RIGHT", qr.waypoint, "LEFT", -2, 0)
 				else
-					qr.text:SetPoint("RIGHT")
+					qr.text:SetPoint("RIGHT", qr, "TOPRIGHT", 0, titleMid)
 				end
 				qr.text:SetWordWrap(false)
 				-- Focus highlight starts at the quest name, after any item button.
 				qr.focusBg:SetPoint("TOPLEFT", qr, "TOPLEFT", itemIndent - 4, 0)
+				qr.focusBg:SetPoint("BOTTOMRIGHT", qr, "TOPRIGHT", 0, -questHeight)
+				qr.hoverBg:SetPoint("TOPLEFT", qr.focusBg)
 				if quest.item then
 					itemEntries[#itemEntries + 1] = { quest = quest, y = y }
 				end
@@ -670,6 +767,8 @@ local function LayoutQuestie(f, zones)
 				if quest.item then
 					y = math.max(y, blockTop + itemSize)
 				end
+				-- Stretch the row over the objectives so hover and clicks cover the whole quest.
+				qr:SetHeight(y - blockTop)
 				y = y + (quest.item and ITEM_QUEST_SPACING or QUEST_SPACING)
 			end
 		end
@@ -774,6 +873,7 @@ local function LayoutBlizzard(f, zones)
 				qr.focusBar:Hide()
 				qr.text:ClearAllPoints()
 				qr.text:SetPoint("TOPLEFT")
+				qr.hoverBg:SetPoint("TOPLEFT", -2, 0)
 				local elite = quest.isElite and "+" or ""
 				local party = #quest.partyMembers > 0 and (" |cff66ccff(+%d)|r"):format(#quest.partyMembers) or ""
 				local title = ("[%d%s] %s%s"):format(quest.level, elite, quest.title, party)
@@ -838,6 +938,8 @@ local function LayoutBlizzard(f, zones)
 				if quest.item then
 					y = math.max(y, blockTop + itemSize + itemBorder)
 				end
+				-- Stretch the row over the objectives so hover and clicks cover the whole quest.
+				qr:SetHeight(y - blockTop)
 				if i < #zone.quests then
 					y = y + ns:Scale(BLIZZ_BLOCK_SPACING)
 				end
