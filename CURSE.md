@@ -6,8 +6,8 @@ Enhanced Quest Tracker gives you the tracker side of Questie without its quest d
 
 ## Features
 
-- **Grouped by zone.** Each zone has its own section that you can collapse, and one button collapses or expands all of them.
-- **Sorted by level.** Quests are listed from lowest to highest level within each zone.
+- **Grouped by zone.** Each zone has its own section that you can collapse, and one button collapses or expands all of them. You can also keep the zone you're in at the top, or turn grouping off to show one list.
+- **Sorted by level.** Quests are listed from lowest to highest level within each zone, or across all of them when grouping is off.
 - **Quest item buttons.** If a quest has a usable item, a button appears next to the quest name. Click it to use the item. The button goes away when the quest is complete.
 - **Party progress.** A blue `(+N)` after a quest shows how many party members also have it. Hover the quest to see how far along they are.
 - **TomTom waypoints.** If you have TomTom installed, a map button next to each quest with a known location sets a TomTom waypoint to it. Setting a waypoint also focuses the quest. While the waypoint is set, the button turns into a red X that cancels it. The waypoint moves when you complete an objective, and it's removed when you hand the quest in or stop focusing it. You can turn the buttons off in the options.
@@ -40,6 +40,8 @@ Everything is in **Options > AddOns > Enhanced Quest Tracker**, split into two s
 - **Font Size:** 70–150%. Row spacing and item buttons scale along with the text.
 - **Background Opacity:** 0–100%. The default is 0% (fully transparent).
 - **Tracker Width**
+- **Group Quests by Zone:** show quests under collapsible zone headers. When it's off, all quests are listed together, sorted by level. On by default.
+- **Show Current Zone First:** when grouping by zone, put the zone you're in at the top. Off by default.
 - **Show Quest Rewards on Mouse Over:** hover a quest to see its rewards. In a party, they show below your party's progress. Off by default.
 - **Show TomTom Waypoint Buttons:** only shown if TomTom is installed. On by default.
 

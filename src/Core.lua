@@ -16,7 +16,9 @@ local DEFAULTS = {
 	style = "Default",
 	fontScale = 100, -- percent of the default font sizes
 	bgOpacity = 0, -- percent opacity of the tracker background
-	collapsed = {}, -- [zoneName] = true
+	groupByZone = true,
+	currentZoneFirst = false,
+	collapsed = {}, -- [zone key] = true (see Data:GetZones)
 }
 ns.defaults = DEFAULTS
 

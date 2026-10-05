@@ -597,7 +597,7 @@ function Tracker:ToggleAllZones()
 	local zones = self.zones or {}
 	local collapse = not self:AllZonesCollapsed()
 	for _, zone in ipairs(zones) do
-		ns.db.collapsed[zone.name] = collapse or nil
+		ns.db.collapsed[zone.key] = collapse or nil
 	end
 	self:Layout()
 end
@@ -605,7 +605,7 @@ end
 function Tracker:AllZonesCollapsed()
 	local zones = self.zones or {}
 	for _, zone in ipairs(zones) do
-		if not ns.db.collapsed[zone.name] then return false end
+		if not ns.db.collapsed[zone.key] then return false end
 	end
 	return #zones > 0
 end
@@ -668,7 +668,9 @@ local function LayoutQuestie(f, zones)
 	local y = 0
 
 	local zoneHeight, questHeight, objectiveHeight = ns:Scale(ZONE_HEIGHT), ns:Scale(QUEST_HEIGHT), ns:Scale(OBJECTIVE_HEIGHT)
-	local questIndent, objectiveIndent = ns:Scale(QUEST_INDENT), ns:Scale(OBJECTIVE_INDENT)
+	-- Quests are only indented under zone headers.
+	local questIndent = ns.db.groupByZone and ns:Scale(QUEST_INDENT) or 0
+	local objectiveIndent = ns:Scale(OBJECTIVE_INDENT)
 	local itemSize, itemGap = ns:Scale(ITEM_SIZE), ns:Scale(ITEM_GAP)
 
 	local totalQuests = 0
@@ -683,20 +685,23 @@ local function LayoutQuestie(f, zones)
 
 	for _, zone in ipairs(zones) do
 		totalQuests = totalQuests + #zone.quests
-		local collapsed = ns.db.collapsed[zone.name]
+		-- Without a header (zone grouping off) there's nothing to expand it with.
+		local collapsed = zone.name and ns.db.collapsed[zone.key]
 
-		local zr = AcquireZoneRow(content)
-		zr.zoneName = zone.name
-		zr:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-		zr:SetSize(width, zoneHeight)
-		zr.bg:Hide()
-		zr.toggle:Hide()
-		zr.toggleHighlight:Hide()
-		zr.text:ClearAllPoints()
-		zr.text:SetPoint("LEFT")
-		zr.text:SetTextColor(1, 1, 1) -- white so zone headers stand out from quests
-		zr.text:SetFormattedText("%s %s |cff888888(%d)|r", collapsed and "+" or "-", zone.name, #zone.quests)
-		y = y + zoneHeight
+		if zone.name then
+			local zr = AcquireZoneRow(content)
+			zr.zoneName = zone.key
+			zr:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+			zr:SetSize(width, zoneHeight)
+			zr.bg:Hide()
+			zr.toggle:Hide()
+			zr.toggleHighlight:Hide()
+			zr.text:ClearAllPoints()
+			zr.text:SetPoint("LEFT")
+			zr.text:SetTextColor(1, 1, 1) -- white so zone headers stand out from quests
+			zr.text:SetFormattedText("%s %s |cff888888(%d)|r", collapsed and "+" or "-", zone.name, #zone.quests)
+			y = y + zoneHeight
+		end
 
 		if not collapsed then
 			for _, quest in ipairs(zone.quests) do
@@ -834,24 +839,27 @@ local function LayoutBlizzard(f, zones)
 	toggle:SetSize(ns:Scale(18), ns:Scale(19))
 
 	for _, zone in ipairs(zones) do
-		local collapsed = ns.db.collapsed[zone.name]
+		-- Without a header (zone grouping off), the top header's button still collapses it.
+		local collapsed = ns.db.collapsed[zone.key]
 
-		local zr = AcquireZoneRow(content)
-		zr.zoneName = zone.name
-		zr:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
-		zr:SetSize(width, zoneHeight)
-		zr.bg:Show()
-		SetAtlasScaled(zr.toggle, collapsed and "ui-questtrackerbutton-secondary-expand" or "ui-questtrackerbutton-secondary-collapse")
-		SetAtlasScaled(zr.toggleHighlight, "ui-questtrackerbutton-yellow-highlight")
-		zr.toggle:Show()
-		zr.toggleHighlight:Show()
-		zr.text:ClearAllPoints()
-		zr.text:SetPoint("LEFT", ns:Scale(BLIZZ_ZONE_TEXT_X), 0)
-		zr.text:SetPoint("RIGHT", zr.toggle, "LEFT", -4, 0)
-		zr.text:SetWordWrap(false)
-		zr.text:SetTextColor(unpack(BLIZZ_HEADER_COLOR))
-		zr.text:SetFormattedText("%s |cffb0b0b0(%d)|r", zone.name, #zone.quests)
-		y = y + zoneHeight
+		if zone.name then
+			local zr = AcquireZoneRow(content)
+			zr.zoneName = zone.key
+			zr:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
+			zr:SetSize(width, zoneHeight)
+			zr.bg:Show()
+			SetAtlasScaled(zr.toggle, collapsed and "ui-questtrackerbutton-secondary-expand" or "ui-questtrackerbutton-secondary-collapse")
+			SetAtlasScaled(zr.toggleHighlight, "ui-questtrackerbutton-yellow-highlight")
+			zr.toggle:Show()
+			zr.toggleHighlight:Show()
+			zr.text:ClearAllPoints()
+			zr.text:SetPoint("LEFT", ns:Scale(BLIZZ_ZONE_TEXT_X), 0)
+			zr.text:SetPoint("RIGHT", zr.toggle, "LEFT", -4, 0)
+			zr.text:SetWordWrap(false)
+			zr.text:SetTextColor(unpack(BLIZZ_HEADER_COLOR))
+			zr.text:SetFormattedText("%s |cffb0b0b0(%d)|r", zone.name, #zone.quests)
+			y = y + zoneHeight
+		end
 
 		if not collapsed then
 			y = y + ns:Scale(BLIZZ_HEADER_TO_BLOCK)

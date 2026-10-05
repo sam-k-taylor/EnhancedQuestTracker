@@ -3,7 +3,7 @@
 Goal is to create a questie style quest tracker UI element.
 
 Core Features
-- Collapsable Sections by quest zone
+- Collapsable Sections by quest zone (optional), with the current zone optionally first
 - Quests ordered by quest level ascending
 
 ## Layout
@@ -36,11 +36,13 @@ Quest clicks: left-click opens the quest, Shift-click untracks (or links it if y
 Style: Options > AddOns > Enhanced Quest Tracker has a Style dropdown to change how the tracker looks. "Default" looks like Blizzard's quest tracker (header bars, quest map icons you can click to focus a quest, check marks on finished objectives, item buttons on the right) but keeps the zone groups; click a zone's bar to collapse it, or the button on the top bar to collapse or expand every zone. "QuestieLike - High Contrast" outlines all tracker text so it's easier to read over the game world.
 
 Options: Options > AddOns > Enhanced Quest Tracker has two sections.
-- Display Options: Lock Tracker, Hide Blizzard Quest Tracker, Style, Font Size (70–150%; row spacing and quest item buttons scale with it), Background Opacity (0–100%, default 0%), Tracker Width, Show Quest Rewards on Mouse Over (off by default; rewards come from `Data:GetRewards` and are added below party progress in the quest tooltip), and Show TomTom Waypoint Buttons (only registered when TomTom is loaded).
+- Display Options: Lock Tracker, Hide Blizzard Quest Tracker, Style, Font Size (70–150%; row spacing and quest item buttons scale with it), Background Opacity (0–100%, default 0%), Tracker Width, Group Quests by Zone (on by default; when off, `Data:GetZones` returns a single group with no name and no header is drawn), Show Current Zone First (off by default; only applies when grouping by zone), Show Quest Rewards on Mouse Over (off by default; rewards come from `Data:GetRewards` and are added below party progress in the quest tooltip), and Show TomTom Waypoint Buttons (only registered when TomTom is loaded).
 - Party Options (party only, not raids): Announce Completed Quests (on by default), Announce Accepted Quests and Auto Share Accepted Quests (both off by default).
 
 Party announcements and sharing: completed quests are detected by `Announce:Scan` on quest log updates; accepted quests come from `QUEST_ACCEPTED`. Auto share skips quests that were shared with you, detected in `QUEST_DETAIL` by the quest giver being a player.
 
 TomTom: `TomTom` is an `OptionalDeps` in the .toc so it loads first. With TomTom loaded, quests with a known location get a map button at the right of the quest name that sets a TomTom waypoint (and points the arrow) to the quest; while it's set the button shows a red X that removes it. `RemoveWaypoint`/`ClearAllWaypoints` are hooked so the button resets when TomTom removes the waypoint itself (e.g. on arrival). The location comes from `C_QuestLog.GetNextWaypoint`, falling back to the quest's POI in `C_QuestLog.GetQuestsOnMap` for the player's map and its parents. Quests without a location have no button; `QUEST_POI_UPDATE` refreshes the tracker when location data loads. `Waypoint:Update` runs on each debounced refresh: it moves the waypoint when the quest's location changes (an objective updates or it becomes ready to hand in) and removes it once the quest leaves the log (handed in or abandoned). Setting a waypoint also focuses the quest (`C_SuperTrack.SetSuperTrackedQuestID`); on `SUPER_TRACKING_CHANGED`, the waypoint is cancelled if its quest is no longer focused. Cancelling the waypoint leaves the focus alone.
+
+Zone groups: each group has a `key` its collapsed state is saved under in `collapsed` (the zone name, or `*all*` for the single ungrouped list). Show Current Zone First finds the player's zone through `C_Map.GetBestMapForUnit`, moving up from Micro (building) maps to their parent zone, because `GetRealZoneText` gives the building name indoors (e.g. "Lakeshire Inn"). The name is matched against the quest log's zone headers.
 
 Drag the grip in the bottom-right corner to resize; scroll with the mouse wheel when the list is taller than the window.

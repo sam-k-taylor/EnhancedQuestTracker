@@ -78,6 +78,14 @@ function Options:Init()
 	end
 	Settings.CreateSlider(category, widthSetting, widthOptions, "Width of the tracker in pixels.")
 
+	AddCheckbox(category, "groupByZone", "Group Quests by Zone",
+		"Group tracked quests under collapsible zone headers. When off, all quests are listed together, sorted by level.",
+		function() ns:RequestRefresh() end)
+
+	AddCheckbox(category, "currentZoneFirst", "Show Current Zone First",
+		"When grouping quests by zone, put the zone you're in at the top of the tracker.",
+		function() ns:RequestRefresh() end)
+
 	AddCheckbox(category, "showRewards", "Show Quest Rewards on Mouse Over",
 		"Show a quest's rewards in a tooltip when you mouse over it in the tracker. In a party, they're listed below the party's progress.")
 

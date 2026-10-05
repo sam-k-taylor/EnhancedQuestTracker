@@ -1,7 +1,9 @@
 local _, ns = ...
 
 -- Reads the tracked (watched) quests from the quest log into a list of zones,
--- each holding its quests sorted by level ascending. Zones are sorted by name.
+-- each holding its quests sorted by level ascending. Zones are sorted by name,
+-- optionally with the player's current zone first.
+-- With zone grouping off, all quests go in one group that has no name.
 local Data = {}
 ns.Data = Data
 
@@ -62,6 +64,20 @@ local function BuildQuest(info)
 	}
 end
 
+local MICRO_MAP = Enum and Enum.UIMapType and Enum.UIMapType.Micro or 5
+
+-- The name of the zone the player is in. GetRealZoneText gives the building
+-- when indoors (e.g. "Lakeshire Inn"), so use the player's map instead, going
+-- up from building maps to their zone.
+local function GetCurrentZoneName()
+	local mapID = C_Map.GetBestMapForUnit("player")
+	local info = mapID and C_Map.GetMapInfo(mapID)
+	while info and info.mapType == MICRO_MAP and info.parentMapID and info.parentMapID ~= 0 do
+		info = C_Map.GetMapInfo(info.parentMapID)
+	end
+	return info and info.name or GetRealZoneText()
+end
+
 function Data:GetZones()
 	local zones, byName = {}, {}
 	local current
@@ -73,7 +89,7 @@ function Data:GetZones()
 			if info.isHeader then
 				current = byName[info.title]
 				if not current then
-					current = { name = info.title, quests = {} }
+					current = { name = info.title, key = info.title, quests = {} }
 					byName[info.title] = current
 					zones[#zones + 1] = current
 				end
@@ -81,6 +97,18 @@ function Data:GetZones()
 				table.insert(current.quests, BuildQuest(info))
 			end
 		end
+	end
+
+	if not ns.db.groupByZone then
+		-- key is what collapse state is saved under (zone names for zone groups).
+		local all = { key = "*all*", quests = {} }
+		for _, zone in ipairs(zones) do
+			for _, quest in ipairs(zone.quests) do
+				all.quests[#all.quests + 1] = quest
+			end
+		end
+		table.sort(all.quests, CompareQuests)
+		return #all.quests > 0 and { all } or {}
 	end
 
 	local result = {}
@@ -92,7 +120,14 @@ function Data:GetZones()
 	end
 	-- The quest log's header order shifts (e.g. opening the map moves the current
 	-- zone to the top), so sort zones ourselves to keep the tracker stable.
-	table.sort(result, function(a, b) return a.name < b.name end)
+	-- Quest log headers are zone names, so the player's zone matches by name.
+	local currentZone = ns.db.currentZoneFirst and GetCurrentZoneName()
+	table.sort(result, function(a, b)
+		if currentZone and (a.name == currentZone) ~= (b.name == currentZone) then
+			return a.name == currentZone
+		end
+		return a.name < b.name
+	end)
 	return result
 end
 
