@@ -14,7 +14,7 @@ ZIP="$RELEASE_DIR/$ADDON-$VERSION.zip"
 rm -rf "$STAGE" "$ZIP"
 mkdir -p "$STAGE"
 
-cp -r src "$STAGE/"
+cp -r src media "$STAGE/"
 cp LICENSE "$STAGE/"
 sed "s/@project-version@/$VERSION/g" "$ADDON.toc" > "$STAGE/$ADDON.toc"
 
