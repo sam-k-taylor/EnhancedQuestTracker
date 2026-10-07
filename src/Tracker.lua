@@ -64,9 +64,18 @@ local function CanMoveOrResize()
 	return not ns.db.locked or IsShiftKeyDown()
 end
 
-local function LevelColor(level)
+-- Matches the quest log: the server's relative difficulty decides the colour,
+-- which can differ from the client-side level formula near the grey cutoff.
+local function QuestColor(quest)
+	if GetDifficultyColor and C_PlayerInfo and C_PlayerInfo.GetContentDifficultyQuestForPlayer then
+		local difficulty = C_PlayerInfo.GetContentDifficultyQuestForPlayer(quest.questID)
+		if difficulty then
+			local c = GetDifficultyColor(difficulty)
+			if c then return c.r, c.g, c.b end
+		end
+	end
 	if GetQuestDifficultyColor then
-		local c = GetQuestDifficultyColor(level)
+		local c = GetQuestDifficultyColor(quest.level)
 		if c then return c.r, c.g, c.b end
 	end
 	return 1, 0.82, 0
@@ -282,7 +291,7 @@ function ShowQuestTooltip(row)
 		GameTooltip:Show()
 	elseif ns.db.showRewards and ns.Data:GetRewards(quest.questID) then
 		GameTooltip:SetOwner(row, "ANCHOR_LEFT")
-		GameTooltip:SetText(quest.title, LevelColor(quest.level))
+		GameTooltip:SetText(quest.title, QuestColor(quest))
 		AddQuestRewards(row)
 		GameTooltip:Show()
 	end
@@ -746,7 +755,7 @@ local function LayoutQuestie(f, zones)
 				qr.focusBg:SetShown(isFocused)
 				qr.focusBar:SetShown(isFocused)
 				qr.text:SetFormattedText("[%d%s] %s%s%s", quest.level, elite, quest.title, party, suffix)
-				qr.text:SetTextColor(LevelColor(quest.level))
+				qr.text:SetTextColor(QuestColor(quest))
 				y = y + questHeight
 
 				if not quest.isComplete then
@@ -892,7 +901,7 @@ local function LayoutBlizzard(f, zones)
 					titleWidth = textWidth - waypointSize - 2
 				end
 				local titleHeight = SetWrappedText(qr.text, title, titleWidth, 2)
-				qr.text:SetTextColor(LevelColor(quest.level))
+				qr.text:SetTextColor(QuestColor(quest))
 				qr:SetPoint("TOPLEFT", content, "TOPLEFT", blockX, -y)
 				qr:SetSize(textWidth, titleHeight)
 				qr.poi:ClearAllPoints()
