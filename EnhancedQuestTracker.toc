@@ -3,7 +3,7 @@
 ## Notes: Questie-style quest tracker grouped by zone, sorted by quest level.
 ## Author: Sam Taylor
 ## IconTexture: Interface\AddOns\EnhancedQuestTracker\media\icon
-## Version: 1.0.5
+## Version: 1.0.6
 ## OptionalDeps: TomTom
 ## SavedVariables: EnhancedQuestTrackerDB
 
