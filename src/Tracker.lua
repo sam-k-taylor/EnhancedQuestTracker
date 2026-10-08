@@ -56,6 +56,10 @@ local WAYPOINT_CANCEL_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
 -- Simple row pools so we don't create frames on every refresh.
 local zoneRows, questRows, objectiveRows = {}, {}, {} -- objective rows are { text, dash, check }
 local used = { zone = 0, quest = 0, objective = 0 }
+-- Timer lines shown by the current layout: { text, timer, prefix }.
+local timerLines = {}
+local TIMER_UPDATE_INTERVAL = 0.2
+local TIMER_PREFIX = (TIME_REMAINING or "Time Remaining:") .. " "
 
 -- Locked trackers can still be moved/resized while holding Shift.
 -- Never in combat: the secure quest item buttons are anchored to the tracker.
@@ -79,6 +83,40 @@ local function QuestColor(quest)
 		if c then return c.r, c.g, c.b end
 	end
 	return 1, 0.82, 0
+end
+
+-- What Blizzard's tracker shows under a complete quest: the quest log's
+-- completion text ("Return to ..."), or "Ready for turn-in" when there's none.
+-- Returns the text and whether it's the fallback.
+local function GetCompletionLine(quest)
+	local text = GetQuestLogCompletionText and GetQuestLogCompletionText(quest.logIndex)
+	if text and text ~= "" then return text, false end
+	return QUEST_WATCH_QUEST_READY or "Ready for turn-in", true
+end
+
+-- Blizzard's timer bar colours: white, fading to yellow below 66% left and to
+-- red below 33%.
+-- Without the quest's total time, it's white until the last minute.
+local function TimerColor(timer, remaining)
+	if not timer.duration then
+		if remaining > 60 then return 1, 1, 1 end
+		return 1, 0, 0
+	end
+	local left = remaining / timer.duration
+	if left > 0.66 then
+		return 1, 1, 1
+	elseif left > 0.33 then
+		return 1, 1, (left - 0.33) / 0.33
+	end
+	return 1, math.max(left, 0) / 0.33, 0
+end
+
+-- Returns whether the timer is still running (or held at 0 for a moment).
+local function UpdateTimerLine(line)
+	local remaining = line.timer.endTime - GetTime()
+	line.text:SetFormattedText("%s%s", line.prefix, SecondsToClock(math.max(remaining, 0)))
+	line.text:SetTextColor(TimerColor(line.timer, remaining))
+	return remaining > -1
 end
 
 -- Inserts the quest link into an open chat edit box. Returns false if the
@@ -477,6 +515,27 @@ local function ReleaseAll()
 		line.check:Hide()
 	end
 	used.zone, used.quest, used.objective = 0, 0, 0
+	wipe(timerLines)
+end
+
+-- Starts counting down a timer line; Tracker's OnUpdate keeps it current.
+local function AddTimerLine(fs, timer, prefix)
+	local line = { text = fs, timer = timer, prefix = prefix or "" }
+	timerLines[#timerLines + 1] = line
+	UpdateTimerLine(line)
+end
+
+local function UpdateTimers(f, elapsed)
+	f.timerElapsed = (f.timerElapsed or 0) + elapsed
+	if f.timerElapsed < TIMER_UPDATE_INTERVAL then return end
+	f.timerElapsed = 0
+	for _, line in ipairs(timerLines) do
+		if not UpdateTimerLine(line) then
+			-- Out of time: the quest log will have the quest as failed now.
+			Tracker:Refresh()
+			return
+		end
+	end
 end
 
 -- Frame -----------------------------------------------------------------------
@@ -776,6 +835,34 @@ local function LayoutQuestie(f, zones)
 							y = y + objectiveHeight
 						end
 					end
+				elseif not quest.isFailed then
+					-- Same line as the default look; wrapped since it can be a sentence.
+					local text, isFallback = GetCompletionLine(quest)
+					local fs = AcquireObjectiveRow(content).text
+					local indent = questIndent + math.max(objectiveIndent, itemIndent)
+					fs:ClearAllPoints()
+					fs:SetPoint("TOPLEFT", content, "TOPLEFT", indent, -y)
+					fs:SetWidth(width - indent)
+					fs:SetWordWrap(true)
+					fs:SetText("- " .. text)
+					if isFallback then
+						fs:SetTextColor(0.5, 0.5, 0.5)
+					else
+						fs:SetTextColor(0.9, 0.9, 0.9)
+					end
+					y = y + math.max(fs:GetStringHeight(), objectiveHeight)
+				end
+				-- Complete quests keep their timer: timed deliveries are complete
+				-- as soon as they're accepted, but still have to be handed in in time.
+				if quest.timer and not quest.isFailed then
+					local fs = AcquireObjectiveRow(content).text
+					local indent = questIndent + math.max(objectiveIndent, itemIndent)
+					fs:ClearAllPoints()
+					fs:SetPoint("TOPLEFT", content, "TOPLEFT", indent, -y)
+					fs:SetWidth(width - indent)
+					fs:SetWordWrap(false)
+					AddTimerLine(fs, quest.timer, "- " .. TIMER_PREFIX)
+					y = y + objectiveHeight
 				end
 				-- Make sure the item button doesn't overlap the next quest.
 				if quest.item then
@@ -928,17 +1015,14 @@ local function LayoutBlizzard(f, zones)
 					line.text:SetPoint("TOPLEFT", content, "TOPLEFT", blockX + dashWidth, -y)
 					line.text:SetTextColor(unpack(color))
 					y = y + SetWrappedText(line.text, text, textWidth - dashWidth)
+					return line
 				end
 
 				if quest.isFailed then
 					AddLine(FAILED or "Failed", { DIM_RED_FONT_COLOR:GetRGB() })
 				elseif quest.isComplete then
-					local completionText = GetQuestLogCompletionText and GetQuestLogCompletionText(quest.logIndex)
-					if completionText and completionText ~= "" then
-						AddLine(completionText, BLIZZ_OBJECTIVE_COLOR)
-					else
-						AddLine(QUEST_WATCH_QUEST_READY or "Ready for turn-in", BLIZZ_COMPLETE_COLOR)
-					end
+					local text, isFallback = GetCompletionLine(quest)
+					AddLine(text, isFallback and BLIZZ_COMPLETE_COLOR or BLIZZ_OBJECTIVE_COLOR)
 				else
 					for _, obj in ipairs(quest.objectives) do
 						if obj.text and obj.text ~= "" then
@@ -949,6 +1033,12 @@ local function LayoutBlizzard(f, zones)
 							end
 						end
 					end
+				end
+				-- Complete quests keep their timer: timed deliveries are complete
+				-- as soon as they're accepted, but still have to be handed in in time.
+				if quest.timer and not quest.isFailed then
+					local line = AddLine(TIMER_PREFIX, BLIZZ_OBJECTIVE_COLOR, "dash")
+					AddTimerLine(line.text, quest.timer, TIMER_PREFIX)
 				end
 
 				-- Make sure the item button doesn't overlap the next quest.
@@ -979,6 +1069,7 @@ function Tracker:Layout()
 	ReleaseAll()
 	local width, height, itemEntries = LAYOUTS[look](f, self.zones)
 	f.content:SetSize(width, math.max(height, 1))
+	f:SetScript("OnUpdate", #timerLines > 0 and UpdateTimers or nil)
 
 	-- Keep the scroll offset valid when content shrinks or the window grows.
 	local scroll = f.scroll

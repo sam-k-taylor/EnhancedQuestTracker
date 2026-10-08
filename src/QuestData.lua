@@ -45,7 +45,34 @@ local function GetQuestItem(logIndex, isComplete)
 	return { link = link, texture = texture, charges = charges }
 end
 
-local function BuildQuest(info)
+-- Seconds left on each timed quest, keyed by questID. Read the same way as
+-- forever's Blizzard quest timer frame (its tracker's timer bar is turned off).
+local function GetQuestTimers()
+	local timers = {}
+	if C_QuestLog.GetQuestTimers then
+		for _, info in ipairs(C_QuestLog.GetQuestTimers() or {}) do
+			timers[info.questID] = info.questTimer
+		end
+	end
+	return timers
+end
+
+-- The quest's timer as { duration, endTime } (endTime in GetTime() seconds),
+-- or nil if it isn't timed or has run out. duration is nil when the quest's
+-- total time isn't known.
+local function GetQuestTimer(questID, timeLeft)
+	local total, elapsed
+	if C_QuestLog.GetTimeAllowed then
+		total, elapsed = C_QuestLog.GetTimeAllowed(questID)
+	end
+	if not timeLeft and total and elapsed then
+		timeLeft = total - elapsed
+	end
+	if not timeLeft or timeLeft <= 0 then return nil end
+	return { duration = total and total > 0 and total or nil, endTime = GetTime() + timeLeft }
+end
+
+local function BuildQuest(info, timers)
 	local questID = info.questID
 	local isComplete = C_QuestLog.IsComplete(questID) or C_QuestLog.ReadyForTurnIn(questID)
 	return {
@@ -57,6 +84,7 @@ local function BuildQuest(info)
 		isComplete = isComplete,
 		item = GetQuestItem(info.questLogIndex, isComplete),
 		isFailed = C_QuestLog.IsFailed(questID),
+		timer = GetQuestTimer(questID, timers[questID]),
 		objectives = C_QuestLog.GetQuestObjectives(questID) or {},
 		partyMembers = GetPartyMembersOnQuest(questID),
 		-- Looked up here rather than in the layout so resizing doesn't repeat it.
@@ -81,6 +109,7 @@ end
 function Data:GetZones()
 	local zones, byName = {}, {}
 	local current
+	local timers = GetQuestTimers()
 
 	local numEntries = C_QuestLog.GetNumQuestLogEntries()
 	for i = 1, numEntries do
@@ -94,7 +123,7 @@ function Data:GetZones()
 					zones[#zones + 1] = current
 				end
 			elseif current and not info.isHidden and C_QuestLog.GetQuestWatchType(info.questID) then
-				table.insert(current.quests, BuildQuest(info))
+				table.insert(current.quests, BuildQuest(info, timers))
 			end
 		end
 	end
