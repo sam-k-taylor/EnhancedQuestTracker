@@ -16,6 +16,8 @@ src/Announce.lua                 Party chat messages for accepted/completed ques
 src/TomTom.lua                   Optional TomTom waypoints to quest locations
 src/ItemButtons.lua              Secure buttons for usable quest items
 src/Tracker.lua                  Tracker frame, collapsible zone headers, quest/objective rows
+src/RecipeData.lua               Reads tracked profession recipes and reagent counts
+src/RecipeTracker.lua            Separate tracker window for tracked recipes
 src/Options.lua                  Options > AddOns settings panel
 ```
 
@@ -44,5 +46,7 @@ Party announcements and sharing: completed quests are detected by `Announce:Scan
 TomTom: `TomTom` is an `OptionalDeps` in the .toc so it loads first. With TomTom loaded, quests with a known location get a map button at the right of the quest name that sets a TomTom waypoint (and points the arrow) to the quest; while it's set the button shows a red X that removes it. `RemoveWaypoint`/`ClearAllWaypoints` are hooked so the button resets when TomTom removes the waypoint itself (e.g. on arrival). The location comes from `C_QuestLog.GetNextWaypoint`, falling back to the quest's POI in `C_QuestLog.GetQuestsOnMap` for the player's map and its parents. Quests without a location have no button; `QUEST_POI_UPDATE` refreshes the tracker when location data loads. `Waypoint:Update` runs on each debounced refresh: it moves the waypoint when the quest's location changes (an objective updates or it becomes ready to hand in) and removes it once the quest leaves the log (handed in or abandoned). Setting a waypoint also focuses the quest (`C_SuperTrack.SetSuperTrackedQuestID`); on `SUPER_TRACKING_CHANGED`, the waypoint is cancelled if its quest is no longer focused. Cancelling the waypoint leaves the focus alone.
 
 Zone groups: each group has a `key` its collapsed state is saved under in `collapsed` (the zone name, or `*all*` for the single ungrouped list). Show Current Zone First finds the player's zone through `C_Map.GetBestMapForUnit`, moving up from Micro (building) maps to their parent zone, because `GetRealZoneText` gives the building name indoors (e.g. "Lakeshire Inn"). The name is matched against the quest log's zone headers.
+
+Profession recipes: recipes tracked from the professions window (`C_TradeSkillUI.GetRecipesTracked`) get their own tracker window, hidden while none are tracked. It lists each recipe's required reagents with how many you have, read with the same `ProfessionsUtil` helpers as forever's Blizzard_ProfessionsRecipeTracker; reagents turn grey (Default look: a check mark) once you have enough. It follows the quest tracker's style, font size, background opacity, width, lock and show/hide, and sizes its height to fit. Left-click opens the recipe, Shift-click untracks (or links it if you are typing in chat), right-click opens a menu with View Recipe and Untrack Recipe; click the title (Default look: the header's button) to collapse it. Its position is saved separately in `recipePoint` and `/eqt reset` puts it back below the quest tracker.
 
 Drag the grip in the bottom-right corner to resize; scroll with the mouse wheel when the list is taller than the window.

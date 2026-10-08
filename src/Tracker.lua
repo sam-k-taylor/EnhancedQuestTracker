@@ -616,6 +616,7 @@ function Tracker:Init()
 		ns.db.width = math.floor(f:GetWidth() + 0.5)
 		ns.db.height = math.floor(f:GetHeight() + 0.5)
 		Tracker:SavePosition()
+		ns.RecipeTracker:ApplyWidth()
 	end)
 	f.grip = grip
 
@@ -709,6 +710,7 @@ function Tracker:Toggle()
 	end
 	self.frame:SetShown(not self.frame:IsShown())
 	self:UpdateItemButtons()
+	ns.RecipeTracker:Layout()
 end
 
 function Tracker:UpdateItemButtons()

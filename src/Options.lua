@@ -33,6 +33,7 @@ function Options:Init()
 	styleSetting:SetValueChangedCallback(function()
 		ns:UpdateTextStyle()
 		ns.Tracker:Layout()
+		ns.RecipeTracker:Layout()
 	end)
 	local function GetStyleOptions()
 		local container = Settings.CreateControlTextContainer()
@@ -49,6 +50,7 @@ function Options:Init()
 	fontSetting:SetValueChangedCallback(function()
 		ns:UpdateTextStyle()
 		ns.Tracker:Layout()
+		ns.RecipeTracker:Layout()
 	end)
 	local fontOptions = Settings.CreateSliderOptions(70, 150, 5)
 	if MinimalSliderWithSteppersMixin then
@@ -60,7 +62,10 @@ function Options:Init()
 
 	local bgSetting = Settings.RegisterAddOnSetting(category, addonName .. "_bgOpacity", "bgOpacity", ns.db,
 		Settings.VarType.Number, "Background Opacity", ns.defaults.bgOpacity)
-	bgSetting:SetValueChangedCallback(function() ns.Tracker:ApplyBackground() end)
+	bgSetting:SetValueChangedCallback(function()
+		ns.Tracker:ApplyBackground()
+		ns.RecipeTracker:ApplyBackground()
+	end)
 	local bgOptions = Settings.CreateSliderOptions(0, 100, 5)
 	if MinimalSliderWithSteppersMixin then
 		bgOptions:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value)
@@ -71,12 +76,15 @@ function Options:Init()
 
 	local widthSetting = Settings.RegisterAddOnSetting(category, addonName .. "_width", "width", ns.db,
 		Settings.VarType.Number, "Tracker Width", ns.defaults.width)
-	widthSetting:SetValueChangedCallback(function() ns.Tracker:ApplyWidth() end)
+	widthSetting:SetValueChangedCallback(function()
+		ns.Tracker:ApplyWidth()
+		ns.RecipeTracker:ApplyWidth()
+	end)
 	local widthOptions = Settings.CreateSliderOptions(180, 600, 10)
 	if MinimalSliderWithSteppersMixin then
 		widthOptions:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right)
 	end
-	Settings.CreateSlider(category, widthSetting, widthOptions, "Width of the tracker in pixels.")
+	Settings.CreateSlider(category, widthSetting, widthOptions, "Width of the quest and profession trackers in pixels.")
 
 	AddCheckbox(category, "groupByZone", "Group Quests by Zone",
 		"Group tracked quests under collapsible zone headers. When off, all quests are listed together, sorted by level.",

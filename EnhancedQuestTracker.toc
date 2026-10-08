@@ -13,4 +13,6 @@ src\Announce.lua
 src\TomTom.lua
 src\ItemButtons.lua
 src\Tracker.lua
+src\RecipeData.lua
+src\RecipeTracker.lua
 src\Options.lua

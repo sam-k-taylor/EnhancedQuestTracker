@@ -5,7 +5,7 @@
     "GetQuestDifficultyColor", "ObjectiveTrackerFrame", "QuestMapFrame_OpenToQuestDetails",
     "ToggleQuestLog", "SlashCmdList", "SLASH_ENHANCEDQUESTTRACKER1",
     "SLASH_ENHANCEDQUESTTRACKER2", "EnhancedQuestTrackerDB", "hooksecurefunc",
-    "GameFontNormal", "GameFontHighlightSmall", "print", "CopyTable", "strtrim", "wipe", "IsShiftKeyDown", "C_ChatInfo", "SendChatMessage", "IsInGroup", "IsInRaid", "Settings", "MinimalSliderWithSteppersMixin", "GetQuestLink", "ChatFrameUtil", "ChatEdit_InsertLink", "MenuUtil", "C_SuperTrack", "QuestUtil", "QuestMapQuestOptions_AbandonQuest", "GetNumSubgroupMembers", "UnitExists", "UnitName", "GameTooltip", "GameTooltip_Hide", "Enum", "GetQuestLogSpecialItemInfo", "GetQuestLogSpecialItemCooldown", "CooldownFrame_Set", "C_Texture", "UnitClass", "RAID_CLASS_COLORS"
+    "GameFontNormal", "GameFontHighlightSmall", "print", "CopyTable", "strtrim", "wipe", "IsShiftKeyDown", "C_ChatInfo", "SendChatMessage", "IsInGroup", "IsInRaid", "Settings", "MinimalSliderWithSteppersMixin", "GetQuestLink", "ChatFrameUtil", "ChatEdit_InsertLink", "MenuUtil", "C_SuperTrack", "QuestUtil", "QuestMapQuestOptions_AbandonQuest", "GetNumSubgroupMembers", "UnitExists", "UnitName", "GameTooltip", "GameTooltip_Hide", "Enum", "GetQuestLogSpecialItemInfo", "GetQuestLogSpecialItemCooldown", "CooldownFrame_Set", "C_Texture", "UnitClass", "RAID_CLASS_COLORS", "C_TradeSkillUI", "ProfessionsUtil", "ProfessionsFrame", "ProfessionsFrame_LoadUI", "Professions", "C_SpellBook", "C_Spell", "C_Item", "C_CurrencyInfo", "Item"
   ],
   "workspace.library": []
 }

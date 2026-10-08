@@ -19,6 +19,9 @@ local DEFAULTS = {
 	groupByZone = true,
 	currentZoneFirst = false,
 	collapsed = {}, -- [zone key] = true (see Data:GetZones)
+	-- Profession recipe tracker (see RecipeTracker.lua), below the quest tracker.
+	recipePoint = { "TOPRIGHT", "UIParent", "TOPRIGHT", -80, -630 },
+	recipesCollapsed = false,
 }
 ns.defaults = DEFAULTS
 
@@ -45,7 +48,7 @@ local function ApplyDefaults(db, defaults)
 	for k, v in pairs(defaults) do
 		if db[k] == nil then
 			db[k] = type(v) == "table" and CopyTable(v) or v
-		elseif type(v) == "table" and type(db[k]) == "table" and k ~= "point" then
+		elseif type(v) == "table" and type(db[k]) == "table" and k ~= "point" and k ~= "recipePoint" then
 			ApplyDefaults(db[k], v)
 		end
 	end
@@ -65,6 +68,7 @@ function ns:RequestRefresh()
 		ns.Announce:Scan()
 		ns.TomTom:Update()
 		ns.Tracker:Refresh()
+		ns.RecipeTracker:Refresh()
 	end)
 end
 
@@ -159,6 +163,8 @@ events:RegisterEvent("GROUP_ROSTER_UPDATE")
 events:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
 events:RegisterEvent("BAG_UPDATE_DELAYED")
 events:RegisterEvent("BAG_UPDATE_COOLDOWN")
+events:RegisterEvent("TRACKED_RECIPE_UPDATE")
+events:RegisterEvent("CURRENCY_DISPLAY_UPDATE") -- reagents can be currencies
 
 events:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
@@ -185,6 +191,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		end
 	elseif event == "PLAYER_LOGIN" then
 		ns.Tracker:Init()
+		ns.RecipeTracker:Init()
 		ns:UpdateBlizzardTracker()
 		ns:RequestRefresh()
 	elseif event == "PLAYER_ENTERING_WORLD" then
@@ -238,6 +245,9 @@ SlashCmdList.ENHANCEDQUESTTRACKER = function(msg)
 		ns.db.width, ns.db.height = DEFAULTS.width, DEFAULTS.height
 		ns.Tracker:RestoreSize()
 		ns.Tracker:RestorePosition()
+		ns.db.recipePoint = CopyTable(DEFAULTS.recipePoint)
+		ns.RecipeTracker:ApplyWidth()
+		ns.RecipeTracker:RestorePosition()
 	elseif cmd == "options" or cmd == "config" then
 		ns.Options:Open()
 	elseif cmd == "toggle" or cmd == "" then
