@@ -94,6 +94,10 @@ function Options:Init()
 		"When grouping quests by zone, put the zone you're in at the top of the tracker.",
 		function() ns:RequestRefresh() end)
 
+	AddCheckbox(category, "nearbyItemButton", "Show Nearby Quest Item Button",
+		"Show a button with a quest's usable item when you're near its objective: the item's target is in range, or you're in the quest's area on the map. Move it in Edit Mode.",
+		function() ns.NearbyItem:ApplyEnabled() end)
+
 	AddCheckbox(category, "showRewards", "Show Quest Rewards on Mouse Over",
 		"Show a quest's rewards in a tooltip when you mouse over it in the tracker. In a party, they're listed below the party's progress.")
 

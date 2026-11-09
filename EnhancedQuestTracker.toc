@@ -12,6 +12,7 @@ src\QuestData.lua
 src\Announce.lua
 src\TomTom.lua
 src\ItemButtons.lua
+src\NearbyItem.lua
 src\Tracker.lua
 src\RecipeData.lua
 src\RecipeTracker.lua

@@ -20,7 +20,9 @@ local QUEST_SPACING = 2
 local ITEM_QUEST_SPACING = 6
 local ZONE_SPACING = 8 -- after each zone's quests
 local MIN_WIDTH, MAX_WIDTH = 180, 600
-local MIN_HEIGHT, MAX_HEIGHT = 80, 1000
+-- The resize grip only changes the width. The height fits the contents, up to
+-- the bottom of the screen; past that the list scrolls.
+local MIN_HEIGHT, MAX_HEIGHT = 40, 4000
 local SCROLL_STEP = 30
 
 -- Default look: sizes and art from Blizzard's objective tracker
@@ -553,6 +555,7 @@ function Tracker:Init()
 	f:SetScript("OnDragStop", function(self)
 		self:StopMovingOrSizing()
 		Tracker:SavePosition()
+		Tracker:Layout() -- the room below the tracker has changed
 	end)
 	if f.SetBackdrop then
 		f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
@@ -609,18 +612,44 @@ function Tracker:Init()
 	grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
 	grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
 	grip:SetScript("OnMouseDown", function()
-		if CanMoveOrResize() then f:StartSizing("BOTTOMRIGHT") end
+		if CanMoveOrResize() then
+			Tracker.sizing = true
+			f:StartSizing("RIGHT") -- width only
+		end
 	end)
 	grip:SetScript("OnMouseUp", function()
+		if not Tracker.sizing then return end
+		Tracker.sizing = nil
 		f:StopMovingOrSizing()
 		ns.db.width = math.floor(f:GetWidth() + 0.5)
-		ns.db.height = math.floor(f:GetHeight() + 0.5)
 		Tracker:SavePosition()
 		ns.RecipeTracker:ApplyWidth()
 	end)
 	f.grip = grip
 
-	f:SetScript("OnSizeChanged", function() Tracker:Layout() end)
+	-- The grip is only shown while the mouse is over the tracker (or it's being
+	-- dragged). Polled because the rows take the mouse, so the frame's own
+	-- OnEnter/OnLeave would fire whenever the cursor crosses a row.
+	grip:SetAlpha(0)
+	local hover = CreateFrame("Frame", nil, f)
+	hover.elapsed = 0
+	hover:SetScript("OnUpdate", function(self, elapsed)
+		self.elapsed = self.elapsed + elapsed
+		if self.elapsed < 0.1 then return end
+		self.elapsed = 0
+		grip:SetAlpha((Tracker.sizing or f:IsMouseOver()) and 1 or 0)
+	end)
+	f:HookScript("OnHide", function() grip:SetAlpha(0) end)
+
+	-- Only a width change affects the rows. Height changes come from fitting
+	-- the contents (or the grip), so just keep the scroll position valid.
+	f:SetScript("OnSizeChanged", function(self, width)
+		if Tracker.layoutWidth ~= width then
+			Tracker:Layout()
+		else
+			Tracker:UpdateScroll()
+		end
+	end)
 
 	self.frame = f
 	f:SetHeight(ns.db.height)
@@ -679,8 +708,16 @@ function Tracker:AllZonesCollapsed()
 	return #zones > 0
 end
 
+-- The window grows and shrinks downwards as it fits its contents, so it has to
+-- be anchored by its top edge.
 function Tracker:SavePosition()
-	local point, _, relPoint, x, y = self.frame:GetPoint()
+	local f = self.frame
+	local point, _, relPoint, x, y = f:GetPoint()
+	if not (point and point:find("^TOP")) then
+		point, relPoint, x, y = "TOPLEFT", "BOTTOMLEFT", f:GetLeft(), f:GetTop()
+		f:ClearAllPoints()
+		f:SetPoint(point, UIParent, relPoint, x, y)
+	end
 	ns.db.point = { point, "UIParent", relPoint, x, y }
 end
 
@@ -694,7 +731,8 @@ end
 
 function Tracker:RestoreSize()
 	if not self.frame or InCombatLockdown() then return end
-	self.frame:SetSize(ns.db.width, ns.db.height)
+	self.frame:SetWidth(ns.db.width)
+	self:Layout()
 end
 
 function Tracker:ApplyWidth()
@@ -753,7 +791,7 @@ local function LayoutQuestie(f, zones)
 		leftInset = PADDING + questIndent,
 	}
 
-	for _, zone in ipairs(zones) do
+	for zoneIndex, zone in ipairs(zones) do
 		totalQuests = totalQuests + #zone.quests
 		-- Without a header (zone grouping off) there's nothing to expand it with.
 		local collapsed = zone.name and ns.db.collapsed[zone.key]
@@ -875,7 +913,7 @@ local function LayoutQuestie(f, zones)
 				y = y + (quest.item and ITEM_QUEST_SPACING or QUEST_SPACING)
 			end
 		end
-		y = y + ZONE_SPACING
+		if zoneIndex < #zones then y = y + ZONE_SPACING end
 	end
 
 	f.title:SetFormattedText("Quests |cff888888(%d)|r", totalQuests)
@@ -936,7 +974,7 @@ local function LayoutBlizzard(f, zones)
 	toggle:SetHighlightAtlas("ui-questtrackerbutton-red-highlight", "ADD")
 	toggle:SetSize(ns:Scale(18), ns:Scale(19))
 
-	for _, zone in ipairs(zones) do
+	for zoneIndex, zone in ipairs(zones) do
 		-- Without a header (zone grouping off), the top header's button still collapses it.
 		local collapsed = ns.db.collapsed[zone.key]
 
@@ -1054,7 +1092,7 @@ local function LayoutBlizzard(f, zones)
 				end
 			end
 		end
-		y = y + ns:Scale(BLIZZ_ZONE_SPACING)
+		if zoneIndex < #zones then y = y + ns:Scale(BLIZZ_ZONE_SPACING) end
 	end
 
 	return width, y, itemEntries
@@ -1069,17 +1107,33 @@ function Tracker:Layout()
 	local look = ns:GetStyle().look
 	self:ApplyChrome(look)
 	ReleaseAll()
+	self.layoutWidth = f:GetWidth()
 	local width, height, itemEntries = LAYOUTS[look](f, self.zones)
 	f.content:SetSize(width, math.max(height, 1))
 	f:SetScript("OnUpdate", #timerLines > 0 and UpdateTimers or nil)
+	self.itemEntries = itemEntries
 
-	-- Keep the scroll offset valid when content shrinks or the window grows.
-	local scroll = f.scroll
+	-- Fit the window to its contents, up to the bottom of the screen (the frame
+	-- is anchored by its top and parented to UIParent, so GetTop is the room
+	-- below it); past that it scrolls.
+	local fit = math.floor(itemEntries.topInset + height + PADDING + 0.5)
+	local top = f:GetTop()
+	if top then
+		fit = math.min(fit, math.max(math.floor(top), MIN_HEIGHT))
+	end
+	if math.abs(f:GetHeight() - fit) >= 1 then
+		f:SetHeight(fit)
+	end
+
+	self:UpdateScroll()
+end
+
+-- Keeps the scroll offset valid when the content shrinks or the window grows.
+function Tracker:UpdateScroll()
+	local scroll = self.frame.scroll
 	scroll:UpdateScrollChildRect()
 	if scroll:GetVerticalScroll() > scroll:GetVerticalScrollRange() then
 		scroll:SetVerticalScroll(scroll:GetVerticalScrollRange())
 	end
-
-	self.itemEntries = itemEntries
 	self:UpdateItemButtons()
 end

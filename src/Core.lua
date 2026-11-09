@@ -22,6 +22,9 @@ local DEFAULTS = {
 	-- Profession recipe tracker (see RecipeTracker.lua), below the quest tracker.
 	recipePoint = { "TOPRIGHT", "UIParent", "TOPRIGHT", -80, -630 },
 	recipesCollapsed = false,
+	-- Nearby quest item button (see NearbyItem.lua), moved in Edit Mode.
+	nearbyItemButton = true,
+	nearbyItemPoint = { "BOTTOM", "UIParent", "BOTTOM", 0, 260 },
 }
 ns.defaults = DEFAULTS
 
@@ -48,7 +51,8 @@ local function ApplyDefaults(db, defaults)
 	for k, v in pairs(defaults) do
 		if db[k] == nil then
 			db[k] = type(v) == "table" and CopyTable(v) or v
-		elseif type(v) == "table" and type(db[k]) == "table" and k ~= "point" and k ~= "recipePoint" then
+		elseif type(v) == "table" and type(db[k]) == "table" and k ~= "point" and k ~= "recipePoint"
+			and k ~= "nearbyItemPoint" then
 			ApplyDefaults(db[k], v)
 		end
 	end
@@ -69,6 +73,7 @@ function ns:RequestRefresh()
 		ns.TomTom:Update()
 		ns.Tracker:Refresh()
 		ns.RecipeTracker:Refresh()
+		ns.NearbyItem:Refresh()
 	end)
 end
 
@@ -192,6 +197,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 	elseif event == "PLAYER_LOGIN" then
 		ns.Tracker:Init()
 		ns.RecipeTracker:Init()
+		ns.NearbyItem:Init()
 		ns:UpdateBlizzardTracker()
 		ns:RequestRefresh()
 	elseif event == "PLAYER_ENTERING_WORLD" then
@@ -200,6 +206,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		ns:UpdateBlizzardTracker()
 		ns.ItemButtons:OnCombatEnded()
+		ns.NearbyItem:OnCombatEnded()
 	elseif event == "QUEST_DETAIL" then
 		ns.Announce:OnQuestDetail()
 	elseif event == "QUEST_ACCEPTED" then
@@ -210,6 +217,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		ns:RequestRefresh()
 	elseif event == "BAG_UPDATE_COOLDOWN" then
 		ns.ItemButtons:UpdateCooldowns()
+		ns.NearbyItem:UpdateCooldowns()
 	else
 		ns:RequestRefresh()
 	end
@@ -248,6 +256,8 @@ SlashCmdList.ENHANCEDQUESTTRACKER = function(msg)
 		ns.db.recipePoint = CopyTable(DEFAULTS.recipePoint)
 		ns.RecipeTracker:ApplyWidth()
 		ns.RecipeTracker:RestorePosition()
+		ns.db.nearbyItemPoint = CopyTable(DEFAULTS.nearbyItemPoint)
+		ns.NearbyItem:RestorePosition()
 	elseif cmd == "options" or cmd == "config" then
 		ns.Options:Open()
 	elseif cmd == "toggle" or cmd == "" then
