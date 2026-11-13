@@ -90,6 +90,10 @@ function Options:Init()
 		"Group tracked quests under collapsible zone headers. When off, all quests are listed together, sorted by level.",
 		function() ns:RequestRefresh() end)
 
+	AddCheckbox(category, "autoHeight", "Fit Height to Contents",
+		"Grow and shrink the tracker to fit the quests shown, up to the bottom of the screen. When off, drag the resize grip to set the height yourself.",
+		function() ns.Tracker:Layout() end)
+
 	AddCheckbox(category, "currentZoneFirst", "Show Current Zone First",
 		"When grouping quests by zone, put the zone you're in at the top of the tracker.",
 		function() ns:RequestRefresh() end)

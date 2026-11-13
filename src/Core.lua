@@ -18,6 +18,7 @@ local DEFAULTS = {
 	bgOpacity = 0, -- percent opacity of the tracker background
 	groupByZone = true,
 	currentZoneFirst = false,
+	autoHeight = true, -- fit the tracker's height to its contents (see Tracker:Layout)
 	collapsed = {}, -- [zone key] = true (see Data:GetZones)
 	-- Profession recipe tracker (see RecipeTracker.lua), below the quest tracker.
 	recipePoint = { "TOPRIGHT", "UIParent", "TOPRIGHT", -80, -630 },

@@ -20,8 +20,10 @@ local QUEST_SPACING = 2
 local ITEM_QUEST_SPACING = 6
 local ZONE_SPACING = 8 -- after each zone's quests
 local MIN_WIDTH, MAX_WIDTH = 180, 600
--- The resize grip only changes the width. The height fits the contents, up to
--- the bottom of the screen; past that the list scrolls.
+-- With Fit Height to Contents on (ns.db.autoHeight), the resize grip only
+-- changes the width and the height fits the contents, up to the bottom of the
+-- screen. With it off, the grip sets the height too. Either way, a list taller
+-- than the window scrolls.
 local MIN_HEIGHT, MAX_HEIGHT = 40, 4000
 local SCROLL_STEP = 30
 
@@ -51,6 +53,11 @@ local BLIZZ_WAYPOINT_SIZE = 14
 local BLIZZ_OBJECTIVE_COLOR = { 0.8, 0.8, 0.8 }
 local BLIZZ_COMPLETE_COLOR = { 0.6, 0.6, 0.6 }
 local BLIZZ_HEADER_COLOR = { 1, 0.82, 0 }
+-- Header settings cog: Blizzard's quest log settings icon (15x16), or the
+-- world map's gear where the client doesn't have that atlas.
+local SETTINGS_ATLAS = "questlog-icon-setting"
+local SETTINGS_TEXTURE = "Interface\\WorldMap\\Gear_64Grey"
+local SETTINGS_ICON_WIDTH, SETTINGS_ICON_HEIGHT = 15, 16
 
 local WAYPOINT_ICON = "Interface\\Icons\\INV_Misc_Map_01"
 local WAYPOINT_CANCEL_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
@@ -581,6 +588,34 @@ function Tracker:Init()
 	f.header.toggle:SetPoint("RIGHT", -1, 0)
 	f.header.toggle:SetScript("OnClick", function() Tracker:ToggleAllZones() end)
 
+	-- Settings cog, left of the collapse button: opens the addon's options.
+	local settings = CreateFrame("Button", nil, f.header)
+	settings:SetPoint("RIGHT", f.header.toggle, "LEFT", -2, 0)
+	settings.icon = settings:CreateTexture(nil, "ARTWORK")
+	settings.icon:SetPoint("CENTER")
+	settings.highlight = settings:CreateTexture(nil, "HIGHLIGHT")
+	settings.highlight:SetAllPoints(settings.icon)
+	settings.highlight:SetBlendMode("ADD")
+	settings.highlight:SetAlpha(0.4)
+	if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(SETTINGS_ATLAS) then
+		settings.icon:SetAtlas(SETTINGS_ATLAS)
+		settings.highlight:SetAtlas(SETTINGS_ATLAS)
+	else
+		settings.icon:SetTexture(SETTINGS_TEXTURE)
+		settings.highlight:SetTexture(SETTINGS_TEXTURE)
+	end
+	-- Nudge the cog down while pressed, like Blizzard's icon buttons.
+	settings:SetScript("OnMouseDown", function(self) self.icon:SetPoint("CENTER", 1, -1) end)
+	settings:SetScript("OnMouseUp", function(self) self.icon:SetPoint("CENTER") end)
+	settings:SetScript("OnClick", function() ns.Options:Open() end)
+	settings:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(SETTINGS or "Options")
+		GameTooltip:Show()
+	end)
+	settings:SetScript("OnLeave", GameTooltip_Hide)
+	f.header.settings = settings
+
 	-- Quest rows live in a scroll child so the window can be shorter than its content.
 	f.scroll = CreateFrame("ScrollFrame", nil, f)
 	f.scroll:EnableMouseWheel(true)
@@ -614,7 +649,7 @@ function Tracker:Init()
 	grip:SetScript("OnMouseDown", function()
 		if CanMoveOrResize() then
 			Tracker.sizing = true
-			f:StartSizing("RIGHT") -- width only
+			f:StartSizing(ns.db.autoHeight and "RIGHT" or "BOTTOMRIGHT")
 		end
 	end)
 	grip:SetScript("OnMouseUp", function()
@@ -622,6 +657,9 @@ function Tracker:Init()
 		Tracker.sizing = nil
 		f:StopMovingOrSizing()
 		ns.db.width = math.floor(f:GetWidth() + 0.5)
+		if not ns.db.autoHeight then
+			ns.db.height = math.floor(f:GetHeight() + 0.5)
+		end
 		Tracker:SavePosition()
 		ns.RecipeTracker:ApplyWidth()
 	end)
@@ -973,6 +1011,9 @@ local function LayoutBlizzard(f, zones)
 	toggle:SetPushedAtlas("ui-questtrackerbutton-" .. state .. "-all-pressed")
 	toggle:SetHighlightAtlas("ui-questtrackerbutton-red-highlight", "ADD")
 	toggle:SetSize(ns:Scale(18), ns:Scale(19))
+	local settings = f.header.settings
+	settings:SetSize(ns:Scale(18), ns:Scale(19))
+	settings.icon:SetSize(ns:Scale(SETTINGS_ICON_WIDTH), ns:Scale(SETTINGS_ICON_HEIGHT))
 
 	for zoneIndex, zone in ipairs(zones) do
 		-- Without a header (zone grouping off), the top header's button still collapses it.
@@ -1115,14 +1156,20 @@ function Tracker:Layout()
 
 	-- Fit the window to its contents, up to the bottom of the screen (the frame
 	-- is anchored by its top and parented to UIParent, so GetTop is the room
-	-- below it); past that it scrolls.
-	local fit = math.floor(itemEntries.topInset + height + PADDING + 0.5)
-	local top = f:GetTop()
-	if top then
-		fit = math.min(fit, math.max(math.floor(top), MIN_HEIGHT))
+	-- below it); past that it scrolls. Otherwise use the height set with the
+	-- grip, left alone while the grip is being dragged.
+	local targetHeight
+	if ns.db.autoHeight then
+		targetHeight = math.floor(itemEntries.topInset + height + PADDING + 0.5)
+		local top = f:GetTop()
+		if top then
+			targetHeight = math.min(targetHeight, math.max(math.floor(top), MIN_HEIGHT))
+		end
+	elseif not self.sizing then
+		targetHeight = ns.db.height
 	end
-	if math.abs(f:GetHeight() - fit) >= 1 then
-		f:SetHeight(fit)
+	if targetHeight and math.abs(f:GetHeight() - targetHeight) >= 1 then
+		f:SetHeight(targetHeight)
 	end
 
 	self:UpdateScroll()
