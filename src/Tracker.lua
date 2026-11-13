@@ -380,6 +380,12 @@ local function ShowWaypointButton(row, size)
 end
 
 local function OpenQuest(questID)
+	-- Opening the map from addon code taints it, and in combat the map's pins
+	-- then can't be set up (blocked Button:SetPassThroughButtons).
+	if InCombatLockdown() then
+		ns:Print("Can't open the quest log in combat.")
+		return
+	end
 	if QuestMapFrame_OpenToQuestDetails then
 		QuestMapFrame_OpenToQuestDetails(questID)
 	elseif ToggleQuestLog then
@@ -556,10 +562,16 @@ function Tracker:Init()
 	f:SetMovable(true)
 	f:EnableMouse(true)
 	f:RegisterForDrag("LeftButton")
+	-- The item buttons aren't anchored to the tracker (see ItemButtons.lua), so
+	-- move them along while it's dragged.
 	f:SetScript("OnDragStart", function(self)
-		if CanMoveOrResize() then self:StartMoving() end
+		if not CanMoveOrResize() then return end
+		self:StartMoving()
+		self.mover = self.mover or CreateFrame("Frame", nil, self)
+		self.mover:SetScript("OnUpdate", function() Tracker:UpdateItemButtons() end)
 	end)
 	f:SetScript("OnDragStop", function(self)
+		if self.mover then self.mover:SetScript("OnUpdate", nil) end
 		self:StopMovingOrSizing()
 		Tracker:SavePosition()
 		Tracker:Layout() -- the room below the tracker has changed
@@ -765,6 +777,7 @@ function Tracker:RestorePosition()
 	local p = ns.db.point
 	f:ClearAllPoints()
 	f:SetPoint(p[1], _G[p[2]] or UIParent, p[3], p[4], p[5])
+	self:UpdateItemButtons()
 end
 
 function Tracker:RestoreSize()

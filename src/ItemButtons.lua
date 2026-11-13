@@ -6,9 +6,10 @@ local _, ns = ...
 -- Using a quest item is a protected action, so these are secure action
 -- buttons. Secure frames can't be shown, hidden, moved or reconfigured in
 -- combat, and anything they are parented or anchored to becomes restricted
--- too. To keep the tracker's own rows free to update in combat, the buttons
--- are parented to UIParent and anchored to the tracker frame by offset, and
--- all changes are deferred until combat ends.
+-- too (e.g. the tracker's SetHeight gets blocked). To keep the tracker free to
+-- update in combat, the buttons are parented and anchored to UIParent at the
+-- tracker's current screen position, and all changes are deferred until combat
+-- ends. The tracker calls Update again whenever it moves.
 local ItemButtons = {}
 ns.ItemButtons = ItemButtons
 
@@ -91,12 +92,14 @@ function ItemButtons:Update(frame, entries)
 	local topInset = entries.topInset or 0
 	local leftInset = entries.leftInset or 0
 	local size = entries.size
+	-- Screen position of the tracker's top-left (both are children of UIParent).
+	local frameLeft, frameTop = frame:GetLeft(), frame:GetTop()
 
 	local shown = 0
 	for _, entry in ipairs(entries) do
 		local rowTop = entry.y - scrollOffset
 		-- Skip rows scrolled out of view rather than drawing over the frame edges.
-		if frame:IsShown() and rowTop >= 0 and rowTop + size <= viewHeight then
+		if frameLeft and frame:IsShown() and rowTop >= 0 and rowTop + size <= viewHeight then
 			shown = shown + 1
 			local button = buttons[shown] or CreateButton(shown)
 			local item = entry.quest.item
@@ -114,7 +117,8 @@ function ItemButtons:Update(frame, entries)
 				button.border:SetSize(size * BORDER_SCALE, size * BORDER_SCALE)
 			end
 			button:ClearAllPoints()
-			button:SetPoint("TOPLEFT", frame, "TOPLEFT", leftInset + (entry.x or 0), -(topInset + rowTop))
+			button:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
+				frameLeft + leftInset + (entry.x or 0), frameTop - (topInset + rowTop))
 			button:Show()
 		end
 	end
